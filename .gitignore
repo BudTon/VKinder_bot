@@ -5,6 +5,10 @@ HELP.md
 .gradle
 build/
 
+# Default ignored files
+/shelf/
+/workspace.xml
+
 ### STS ###
 .apt_generated
 .classpath
