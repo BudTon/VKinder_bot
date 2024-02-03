@@ -1,8 +1,7 @@
 import logging
 import sys
-from datetime import datetime
 
-from sqlalchemy import create_engine, Column, Integer, inspect, String, ForeignKey, DateTime
+from sqlalchemy import create_engine, Column, Integer, inspect, String, ForeignKey
 from sqlalchemy.orm import sessionmaker, relationship, declarative_base
 from sqlalchemy_utils import database_exists, create_database
 
@@ -12,73 +11,33 @@ Base = declarative_base()
 
 
 # Определение моделей
-class User(Base):
-    __tablename__ = 'users'
-    id = Column(Integer, primary_key=True)
-    username = Column(String)
-    profile_url = Column(String)
-    age = Column(Integer)
-    gender = Column(String)
-    city_id = Column(Integer, ForeignKey('cities.id'))
-    interests = Column(String)
-
-    searches = relationship("UserSearches", back_populates="user")
-    favorites = relationship("Favorites", back_populates="user")
+class Candidate(Base):
+    __tablename__ = 'candidates'
+    candidate_id = Column(Integer, primary_key=True)
+    first_name = Column(String)
+    last_name = Column(String)
+    link = Column(String)
+    photos = relationship("Photos", back_populates="candidate")
 
 
-class City(Base):
-    __tablename__ = 'cities'
-    id = Column(Integer, primary_key=True)
-    name = Column(String)
-    users = relationship("User", back_populates="city")
+class Photos(Base):
+    __tablename__ = 'photos'
+    photos_id = Column(Integer, primary_key=True)
+    photos_ids = Column(Integer)
+    candidate_id = Column(Integer, ForeignKey('candidates.candidate_id'))
+    candidate = relationship("Candidate", back_populates="photos")
 
 
-class UserSearchResults(Base):
-    __tablename__ = 'user_search_results'
-    id = Column(Integer, primary_key=True)
-    search_id = Column(Integer, ForeignKey('user_searches.id'))
-    found_user_id = Column(Integer)
-
-    search = relationship("UserSearches", back_populates="results")
+class FavoriteList(Base):
+    __tablename__ = 'favorite_list'
+    favorite_list_id = Column(Integer, primary_key=True)
+    candidate_id = Column(Integer, ForeignKey('candidates.candidate_id'))
 
 
-class UserSearches(Base):
-    __tablename__ = 'user_searches'
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey('users.id'))
-    timestamp = Column(DateTime, default=datetime.utcnow)
-    criteria_id = Column(Integer, ForeignKey('search_criteria.id'))
-
-    results = relationship("UserSearchResults", back_populates="search")
-
-
-class SearchCriteria(Base):
-    __tablename__ = 'search_criteria'
-    id = Column(Integer, primary_key=True)
-    age_range = Column(String)
-    gender_preference = Column(String)
-    city_id = Column(Integer, ForeignKey('cities.id'))
-    interests = Column(String)
-
-    search = relationship("UserSearches", back_populates="criteria")
-
-
-class MatchResult(Base):
-    __tablename__ = 'match_results'
-    id = Column(Integer, primary_key=True)
-    search_id = Column(Integer, ForeignKey('user_searches.id'))
-    matched_user_id = Column(Integer)
-
-    search = relationship("UserSearches", back_populates="results")
-
-
-class Favorites(Base):
-    __tablename__ = 'favorites'
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey('users.id'))
-    favorite_user_id = Column(Integer)
-
-    user = relationship("User", back_populates="favorites")
+class BlackList(Base):
+    __tablename__ = 'black_list'
+    black_list_id = Column(Integer, primary_key=True)
+    candidate_id = Column(Integer, ForeignKey('candidates.candidate_id'))
 
 
 class Saver:
@@ -112,10 +71,10 @@ class Saver:
         Проверка существования таблиц, создание при необходимости.
         """
         inspector = inspect(self.engine)
-        for table in [User.__tablename__,
-                      City.__tablename__,
-                      SearchCriteria.__tablename__,
-                      MatchResult.__tablename__]:
+        for table in [Candidate.__tablename__,
+                      Photos.__tablename__,
+                      FavoriteList.__tablename__,
+                      BlackList.__tablename__]:
             if not inspector.has_table(table):
                 response = input(f'Таблица {table} не существует. Создать таблицы? (Y/N): ').upper()
                 if response == 'Y':
@@ -126,54 +85,100 @@ class Saver:
                     self.logger.info('Выход...')
                     sys.exit(0)
 
-    def save_search_criteria(self, user_id, age_range,
-                             gender_preference, city_id, status):
+    def save_candidate(self, candidate_id, first_name, last_name, link):
         """
-        Сохраняет критерии поиска пользователя.
-        :param user_id: ID пользователя ВКонтакте.
-        :param age_range: Возрастной диапазон.
-        :param gender_preference: Пол.
-        :param city_id: ID города.
-        :param status: Семейное положение.
+        Сохраняет кандидата.
+        :param candidate_id: ID пользователя ВКонтакте
+        :param first_name: Имя.
+        :param last_name: Фамилия.
+        :param link: URL.
         """
-        criteria = SearchCriteria(user_id=user_id,
-                                  age_range=age_range,
-                                  gender_preference=gender_preference,
-                                  city_id=city_id,
-                                  status=status)
-        self.session.add(criteria)
+        candidate = Candidate(
+            candidate_id=candidate_id,
+            first_name=first_name,
+            last_name=last_name,
+            link=link
+        )
+        self.session.add(candidate)
         self.session.commit()
 
-    def save_match_result(self, searcher_id, matched_user_id, score):
+    def save_black_list(self, black_list_id, candidate_id):
         """
-        Сохраняет результаты поиска.
-        :param searcher_id: ID искателя.
-        :param matched_user_id: ID найденного пользователя.
-        :param score: Оценка совпадения.
+        Сохраняет в черный список.
+        :param black_list_id: ID пользователя ВКонтакте
+        :param candidate_id: ID пользователя ВКонтакте
         """
-        match = MatchResult(searcher_id=searcher_id,
-                            matched_user_id=matched_user_id,
-                            score=score)
-        self.session.add(match)
+        black_list = BlackList(
+            black_list_id=black_list_id,
+            candidate_id=candidate_id,
+        )
+        self.session.add(black_list)
         self.session.commit()
 
-    def get_user_search_history(self, user_id):
+    def save_favorite_list(self, favorite_list_id, candidate_id):
         """
-        Получает историю поисков для заданного пользователя.
-        :param user_id: ID пользователя ВКонтакте.
-        :return: Список истории поисков.
+        Сохраняет в список избранного.
+        :param favorite_list_id: ID пользователя ВКонтакте
+        :param candidate_id: ID пользователя ВКонтакте
         """
-        search_history = self.session.query(UserSearches).filter_by(user_id=user_id).all()
-        return [(search.id, search.timestamp, search.criteria_id) for search in search_history]
+        favorite_list = FavoriteList(
+            favorite_list_id=favorite_list_id,
+            candidate_id=candidate_id,
+        )
+        self.session.add(favorite_list)
+        self.session.commit()
 
-    def get_user_favorites(self, user_id):
+    def save_photos(self, photos_ids, candidate_id):
+        """
+        Сохраняет фото
+        :param photos_ids: ID фото
+        :param candidate_id: ID пользователя ВКонтакте
+        """
+        photos_ids = Photos(
+            photos_ids=photos_ids,
+            candidate_id=candidate_id,
+        )
+        self.session.add(photos_ids)
+        self.session.commit()
+
+    def get_candidate_favorites(self, candidate_id):
         """
         Получает список избранных пользователей для заданного пользователя.
-        :param user_id: ID пользователя ВКонтакте.
+        :param candidate_id: ID пользователя ВКонтакте.
         :return: Список избранных пользователей.
         """
-        favorites = self.session.query(Favorites).filter_by(user_id=user_id).all()
-        return [favorite.favorite_user_id for favorite in favorites]
+        try:
+            favorites_list = self.session.query(FavoriteList).filter_by(candidate_id=candidate_id).all()
+            return [favorite.favorite_list_id for favorite in favorites_list]
+        except Exception as error:
+            self.logger.warning(error)
+            return None
+
+    def get_candidate_black_list(self, candidate_id):
+        """
+        Получает черный список для заданного пользователя.
+        :param candidate_id: ID пользователя ВКонтакте.
+        :return: Список пользователей в черном списке.
+        """
+        try:
+            black_list = self.session.query(BlackList).filter_by(candidate_id=candidate_id).all()
+            return [black_list.black_list_id for black_list in black_list]
+        except Exception as error:
+            self.logger.warning(error)
+            return None
+
+    def get_user_photos(self, candidate_id):
+        """
+        Получает список фото для заданного пользователя.
+        :param candidate_id: ID пользователя ВКонтакте.
+        :return: Список идентификаторов фото.
+        """
+        try:
+            photos = self.session.query(Photos).filter_by(candidate_id=candidate_id).all()
+            return [photo.photos_ids for photo in photos]
+        except Exception as error:
+            self.logger.warning(error)
+            return None
 
 
 if __name__ == '__main__':
