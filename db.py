@@ -53,6 +53,9 @@ class Saver:
         """
         Создает базу данных, если она не существует.
         """
+
+        # Создание базы данных, если она не существует
+
         if not database_exists(self.engine.url):
             self.logger.info(f"База данных не найдена. Создаем базу данных.")
             create_database(self.engine.url)
@@ -101,6 +104,7 @@ class Saver:
         self.session.add(candidate)
         self.session.commit()
 
+
     def save_black_list(self, candidate_id):
         """
         Сохраняет в черный список.
@@ -140,6 +144,7 @@ class Saver:
         try:
             favorites_list_all = self.session.query(FavoriteList).all()
             return [favorite.candidate_id for favorite in favorites_list_all]
+
         except Exception as error:
             self.logger.warning(error)
             return None
@@ -152,10 +157,12 @@ class Saver:
         try:
             black_list_all = self.session.query(BlackList).all()
             return [black_list.black_list_id for black_list in black_list_all]
+
         except Exception as error:
             self.logger.warning(error)
             return None
 
+    
     def get_list_candidate_id(self):
         """
             Получает список ID пользователей в базе данных
@@ -171,6 +178,7 @@ class Saver:
 
 
 
+
     def get_user_photos(self, candidate_id):
         """
         Получает список фото для заданного пользователя.
@@ -183,8 +191,7 @@ class Saver:
         except Exception as error:
             self.logger.warning(error)
             return None
-
-
+          
     def get_user_candidate(self, candidate_id):
         """
         Получает список фото для заданного пользователя.
