@@ -1,10 +1,11 @@
 from random import randrange
 import vk_api
-import logging
+
 from vk_api.longpoll import VkLongPoll, VkEventType
 from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 
-
+from db import *
+from config import CONNSTR
 
 def send_message(interlocutor_id, message, keyboard, attachments):
     session.method('messages.send', {
@@ -17,7 +18,7 @@ def send_message(interlocutor_id, message, keyboard, attachments):
                    )
 
 def vk_bot(session, session_photo, number_attempts):
-    # upload = VkUpload(session)
+
     for event in VkLongPoll(session).listen():
         if event.type == VkEventType.MESSAGE_NEW and event.to_me:
             attachments = []
@@ -27,6 +28,8 @@ def vk_bot(session, session_photo, number_attempts):
             print(text)
             keyboard = VkKeyboard() #one_time=True)
             keyboard.add_button('Запустить поиск Кандидатов ', VkKeyboardColor.PRIMARY)
+            db = Saver(CONNSTR)
+
             if text == 'привет':
                 send_message(interlocutor_id, 'Будем искать Знакомство?', keyboard, attachments)
 
@@ -49,29 +52,38 @@ def vk_bot(session, session_photo, number_attempts):
                                               f'в городе {city_find}, примерно {age_find} '
                                               f'года рождения', keyboard, attachments)
 
-                buttons = ['Избранное', 'Черный список', 'Далее']
+                buttons = ['В Избранное', 'В Черный список', 'Далее']
                 buttons_colors = [VkKeyboardColor.POSITIVE, VkKeyboardColor.NEGATIVE, VkKeyboardColor.PRIMARY]
                 keyboard = VkKeyboard()
                 for btn, btn_colors in zip(buttons, buttons_colors):
                     keyboard.add_button(btn, btn_colors)
+                keyboard.add_line()
+                keyboard.add_button('Показать Избранное и Закончить', VkKeyboardColor.SECONDARY)
+
                 send_message(interlocutor_id,'Идет поиск кандидатов', keyboard, attachments)
-                first_name, last_name, url, user_id = user_profile(session, city_find, age_find, sex_find, number_attempts)
+                first_name, last_name, url, user_id = user_profile(session, city_find, age_find, sex_find, number_attempts, db)#, interlocutor_id, keyboard)
                 if first_name == last_name == url == user_id == 0:
-                    send_message(interlocutor_id, f'Из {number_attempts} - попыток Кандидат не найден. Нажмите "Далее" для повторного поиска', keyboard, attachments)
+                    send_message(interlocutor_id, f'Из {number_attempts} - попыток Кандидат не найден. '
+                                                  f'Нажмите "Далее" для повторного поиска', keyboard, attachments)
                 else:
                     attachments = get_top_photos(session_photo, user_id)
-
                     print(attachments)
-
                     if attachments == None:
                         send_message(interlocutor_id, f'- {first_name} {last_name},\n'
                                                       f'- ссылка на профиль: {url},\n'
                                                       f'-У Кандидата нет фото в профиле', keyboard, attachments)
+                        db.save_candidate(candidate_id=user_id, first_name=first_name, last_name=last_name,
+                                          link=url)
+                        db.save_photos(attachment_photo='У Кандидата нет фото в профиле', candidate_id=user_id)
+
                     else:
                         send_message(interlocutor_id, f'- {first_name} {last_name},\n'
                                                       f'- ссылка на профиль: {url},\n'
                                                       f'- У кандидата в профиле {len(attachments)} фотографий',
                                      keyboard, attachments=None)
+                        db.save_candidate(candidate_id=user_id, first_name=first_name, last_name=last_name,
+                                          link=url)
+
                         if len(attachments) > 4:
                             n_photos = 3
                         else:
@@ -79,11 +91,34 @@ def vk_bot(session, session_photo, number_attempts):
                         for i_photo in range(n_photos):
                             send_message(interlocutor_id, f'Фото {i_photo + 1}',
                                          keyboard, attachments[i_photo])
+                            db.save_photos(attachment_photo=attachments[i_photo], candidate_id=user_id)
 
-                    # if text == 'избранное':
+            if text == 'в избранное':
+                print('Идем в избранное - ', user_id)
+                db.save_favorite_list(candidate_id=user_id)
 
-                    # if text == 'черный список':
+            if text == 'черный список':
+                db.save_black_list(candidate_id=user_id)
 
+            if text == 'показать избранное и закончить':
+                list_user_candidate_id = db.get_candidate_favorites()
+                list_favorites_candidates = [db.get_user_candidate(candidate_id=user_candidate) for user_candidate in
+                                             list_user_candidate_id]
+
+                for favorites_candidates_in_list in list_favorites_candidates:
+                    send_message(interlocutor_id,
+                                 f'\nКАНДИДАТ ИЗ ИЗБРАННОГО\n'
+                                 f'- {favorites_candidates_in_list[0]} {favorites_candidates_in_list[1]},\n'
+                                 f'- ссылка на профиль: {favorites_candidates_in_list[2]},\n',
+                                 keyboard, attachments=None)
+                    print("Candidate: ", favorites_candidates_in_list)
+                    favorites_candidate_photos_list = favorites_candidates_in_list[3]
+                    for photo_number in range(len(favorites_candidate_photos_list)):
+                        send_message(interlocutor_id, f'Фото {photo_number + 1}',
+                                     keyboard, favorites_candidate_photos_list[photo_number])
+
+                send_message(interlocutor_id, 'Поиск закончен', keyboard, attachments)
+                break
 
 
 def get_top_photos(session_photo, user_id):
@@ -93,7 +128,7 @@ def get_top_photos(session_photo, user_id):
         if photos['count'] == 0:
             return None
 
-        # Сортировка фотографий по популярности (лайки)
+        # Сортировка фотографий по популярности (лайки + комментарии)
         popular_photos = sorted(
             photos["items"],
             key=lambda x: x["likes"]["count"],
@@ -101,7 +136,8 @@ def get_top_photos(session_photo, user_id):
         )
 
         # Создание списка отсортированных фотографий в формате attachments
-        attachments = ['photo{}_{}'.format(popular_photos[photo_nub]['owner_id'], popular_photos[photo_nub]['id']) for photo_nub in range(len(popular_photos))]
+        attachments = ['photo{}_{}'.format(popular_photos[photo_nub]['owner_id'],
+                                           popular_photos[photo_nub]['id']) for photo_nub in range(len(popular_photos))]
         print(attachments)
         return attachments
 
@@ -109,15 +145,21 @@ def get_top_photos(session_photo, user_id):
         logging.error("Ошибка при получении фото пользователя: %s", error)
         return None
 
-
-def user_profile(session, city_find, age_find, sex_find, number_attempts):
-    lost_attempts = 0
-    while lost_attempts < number_attempts:
-        lost_attempts += 1
+def user_profile(session, city_find, age_find, sex_find, number_attempts, db): #, interlocutor_id, keyboard):
+    last_attempts = 0
+    list_candidate = db.get_list_candidate_id()
+    print(list_candidate)
+    while last_attempts < number_attempts:
         user_id = randrange(10 ** 7)
-        print(user_id, lost_attempts)
+        last_attempts += 1
+        print(user_id, last_attempts)
+        """
+        Вывод сообщения в бот о ходе подбора Кандидатов
+        в тест режиме лучше отключить для увеличения скорости поиска
+        """
+        # send_message(interlocutor_id, f'Проверка {last_attempts} из {number_attempts}', keyboard, attachments=None)
+
         profile = session.method('users.get', {'user_ids': user_id, 'fields': 'bdate, sex, city'})
-        # print(profile)
         if 'bdate' in profile[0]:
             if '.' in profile[0]['bdate'][-4::1]:
                 profile_age = 0
@@ -126,14 +168,16 @@ def user_profile(session, city_find, age_find, sex_find, number_attempts):
         else:
             profile_age = 0
 
-        if ('city' in profile[0] and
-                'deactivated' not in profile[0] and
-                'sex' in profile[0] and
-                profile[0]['is_closed'] != True):
-            # print(profile[0]['city']['title'], profile_age, profile[0]['sex'], profile_sex, sex)
+        if ('city' in profile[0]
+            and 'deactivated' not in profile[0]
+            and 'sex' in profile[0]
+            and profile[0]['is_closed'] != True
+            and user_id not in list_candidate
+            ):
             if (profile[0]['city']['title'] == city_find
-                    and (profile_age - 5 < age_find < profile_age + 5 or profile_age == 0)
-                    and sex_find == profile[0]['sex']):
+                and (profile_age - 5 < age_find < profile_age + 5 or profile_age == 0)
+                and sex_find == profile[0]['sex']
+                ):
                 first_name = profile[0]['first_name']
                 last_name = profile[0]['last_name']
                 url = f'https://vk.com/id{user_id}'
@@ -145,10 +189,10 @@ def user_profile(session, city_find, age_find, sex_find, number_attempts):
 
 if __name__ == '__main__':
     # токен сообщества
-    token = '!!!!!!!!!!!'
+    token = '1'
     # токен приложения
-    token_photo = '!!!!!!!!!!!!'
+    token_photo = '1'
     session = vk_api.VkApi(token=token)
     session_photo = vk_api.VkApi(token=token_photo)
-    number_attempts = 999
+    number_attempts = 99
     vk_bot(session, session_photo, number_attempts)
