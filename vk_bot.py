@@ -24,9 +24,7 @@ def vk_bot(session, session_photo, number_attempts):
             attachments = []
             text = event.text.lower()
             interlocutor_id = event.user_id
-            print(interlocutor_id)
-            print(text)
-            keyboard = VkKeyboard() #one_time=True)
+            keyboard = VkKeyboard()
             keyboard.add_button('Запустить поиск Кандидатов ', VkKeyboardColor.PRIMARY)
             db = Saver(CONNSTR)
 
@@ -67,7 +65,6 @@ def vk_bot(session, session_photo, number_attempts):
                                                   f'Нажмите "Далее" для повторного поиска', keyboard, attachments)
                 else:
                     attachments = get_top_photos(session_photo, user_id)
-                    print(attachments)
                     if attachments == None:
                         send_message(interlocutor_id, f'- {first_name} {last_name},\n'
                                                       f'- ссылка на профиль: {url},\n'
@@ -84,7 +81,7 @@ def vk_bot(session, session_photo, number_attempts):
                         db.save_candidate(candidate_id=user_id, first_name=first_name, last_name=last_name,
                                           link=url)
 
-                        if len(attachments) > 4:
+                        if len(attachments) > 3:
                             n_photos = 3
                         else:
                             n_photos = len(attachments)
@@ -94,10 +91,9 @@ def vk_bot(session, session_photo, number_attempts):
                             db.save_photos(attachment_photo=attachments[i_photo], candidate_id=user_id)
 
             if text == 'в избранное':
-                print('Идем в избранное - ', user_id)
                 db.save_favorite_list(candidate_id=user_id)
 
-            if text == 'черный список':
+            if text == 'в черный список':
                 db.save_black_list(candidate_id=user_id)
 
             if text == 'показать избранное и закончить':
@@ -138,7 +134,6 @@ def get_top_photos(session_photo, user_id):
         # Создание списка отсортированных фотографий в формате attachments
         attachments = ['photo{}_{}'.format(popular_photos[photo_nub]['owner_id'],
                                            popular_photos[photo_nub]['id']) for photo_nub in range(len(popular_photos))]
-        print(attachments)
         return attachments
 
     except vk_api.exceptions.ApiError as error:
@@ -148,7 +143,6 @@ def get_top_photos(session_photo, user_id):
 def user_profile(session, city_find, age_find, sex_find, number_attempts, db): #, interlocutor_id, keyboard):
     last_attempts = 0
     list_candidate = db.get_list_candidate_id()
-    print(list_candidate)
     while last_attempts < number_attempts:
         user_id = randrange(10 ** 7)
         last_attempts += 1
@@ -172,24 +166,20 @@ def user_profile(session, city_find, age_find, sex_find, number_attempts, db): #
             and 'deactivated' not in profile[0]
             and 'sex' in profile[0]
             and profile[0]['is_closed'] != True
-            and user_id not in list_candidate
-            ):
+            and user_id not in list_candidate):
             if (profile[0]['city']['title'] == city_find
                 and (profile_age - 5 < age_find < profile_age + 5 or profile_age == 0)
-                and sex_find == profile[0]['sex']
-                ):
+                and sex_find == profile[0]['sex']):
                 first_name = profile[0]['first_name']
                 last_name = profile[0]['last_name']
                 url = f'https://vk.com/id{user_id}'
-                print(profile)
-                print()
                 return first_name, last_name, url, user_id
     return 0, 0, 0, 0
 
 
 if __name__ == '__main__':
     # токен сообщества
-    token = USER_TOKEN,
+    token = USER_TOKEN
     # токен приложения
     token_photo = TOKEN_PHOTO
     session = vk_api.VkApi(token=token)
