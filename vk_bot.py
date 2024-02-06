@@ -5,7 +5,7 @@ from vk_api.longpoll import VkLongPoll, VkEventType
 from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 
 from db import *
-from config import CONNSTR
+from config import CONNSTR, USER_TOKEN, TOKEN_PHOTO
 
 def send_message(interlocutor_id, message, keyboard, attachments):
     session.method('messages.send', {
@@ -189,9 +189,9 @@ def user_profile(session, city_find, age_find, sex_find, number_attempts, db): #
 
 if __name__ == '__main__':
     # токен сообщества
-    token = '1'
+    token = USER_TOKEN,
     # токен приложения
-    token_photo = '1'
+    token_photo = TOKEN_PHOTO
     session = vk_api.VkApi(token=token)
     session_photo = vk_api.VkApi(token=token_photo)
     number_attempts = 99
