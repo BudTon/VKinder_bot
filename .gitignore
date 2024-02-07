@@ -1,6 +1,74 @@
 /.idea/
 /__pycache__/
 
-key.txt
-settings.ini
+HELP.md
+.gradle
+build/
+
+# Default ignored files
+/shelf/
+/workspace.xml
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+### Android Studio ###
+local.properties
+captures/
+.externalNativeBuild
+.cxx
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+### VS Code ###
+.vscode/
+
+### Package Files ###
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+### Gradle ###
+!gradle/wrapper/gradle-wrapper.jar
+
+###  ###
+
+Thumbs.db*
+.DS_Store
+target/
+
+### Node ###
+node_modules/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
 
