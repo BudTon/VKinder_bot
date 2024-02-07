@@ -23,7 +23,7 @@ class Candidate(Base):
 class Photos(Base):
     __tablename__ = 'photos'
     photos_id = Column(Integer, primary_key=True)
-    photos_ids = Column(Integer)
+    attachment_photo = Column(String)
     candidate_id = Column(Integer, ForeignKey('candidates.candidate_id'))
     candidate = relationship("Candidate", back_populates="photos")
 
@@ -53,7 +53,9 @@ class Saver:
         """
         Создает базу данных, если она не существует.
         """
+
         # Создание базы данных, если она не существует
+
         if not database_exists(self.engine.url):
             self.logger.info(f"База данных не найдена. Создаем базу данных.")
             create_database(self.engine.url)
@@ -102,70 +104,80 @@ class Saver:
         self.session.add(candidate)
         self.session.commit()
 
-    def save_black_list(self, black_list_id, candidate_id):
+
+    def save_black_list(self, candidate_id):
         """
         Сохраняет в черный список.
-        :param black_list_id: ID пользователя ВКонтакте
         :param candidate_id: ID пользователя ВКонтакте
         """
-        black_list = BlackList(
-            black_list_id=black_list_id,
-            candidate_id=candidate_id,
-        )
+        black_list = BlackList(candidate_id=candidate_id)
         self.session.add(black_list)
         self.session.commit()
 
-    def save_favorite_list(self, favorite_list_id, candidate_id):
+    def save_favorite_list(self, candidate_id):
         """
         Сохраняет в список избранного.
-        :param favorite_list_id: ID пользователя ВКонтакте
         :param candidate_id: ID пользователя ВКонтакте
         """
-        favorite_list = FavoriteList(
-            favorite_list_id=favorite_list_id,
-            candidate_id=candidate_id,
-        )
+        favorite_list = FavoriteList(candidate_id=candidate_id)
         self.session.add(favorite_list)
         self.session.commit()
 
-    def save_photos(self, photos_ids, candidate_id):
+    def save_photos(self, attachment_photo, candidate_id):
         """
         Сохраняет фото
-        :param photos_ids: ID фото
+        :param attachment_photo: attachment_photo идентификатор для получения фото ВКонтакте
         :param candidate_id: ID пользователя ВКонтакте
         """
-        photos_ids = Photos(
-            photos_ids=photos_ids,
-            candidate_id=candidate_id,
+        attachment_photo = Photos(
+            attachment_photo=attachment_photo,
+            candidate_id=candidate_id
         )
-        self.session.add(photos_ids)
+        self.session.add(attachment_photo)
         self.session.commit()
 
-    def get_candidate_favorites(self, candidate_id):
+    def get_candidate_favorites(self):
         """
-        Получает список избранных пользователей для заданного пользователя.
-        :param candidate_id: ID пользователя ВКонтакте.
+        Получает список избранных пользователей.
         :return: Список избранных пользователей.
         """
         try:
-            favorites_list = self.session.query(FavoriteList).filter_by(candidate_id=candidate_id).all()
-            return [favorite.favorite_list_id for favorite in favorites_list]
+            favorites_list_all = self.session.query(FavoriteList).all()
+            return [favorite.candidate_id for favorite in favorites_list_all]
+
         except Exception as error:
             self.logger.warning(error)
             return None
 
-    def get_candidate_black_list(self, candidate_id):
+    def get_candidate_black_list(self):
         """
-        Получает черный список для заданного пользователя.
-        :param candidate_id: ID пользователя ВКонтакте.
+        Получает список пользователей в черном списке
         :return: Список пользователей в черном списке.
         """
         try:
-            black_list = self.session.query(BlackList).filter_by(candidate_id=candidate_id).all()
-            return [black_list.black_list_id for black_list in black_list]
+            black_list_all = self.session.query(BlackList).all()
+            return [black_list.black_list_id for black_list in black_list_all]
+
         except Exception as error:
             self.logger.warning(error)
             return None
+
+    
+    def get_list_candidate_id(self):
+        """
+            Получает список ID пользователей в базе данных
+            :return: Список ID пользователей в базе данных.
+        """
+
+        try:
+            list_candidate_id_all = self.session.query(Candidate).all()
+            return [list_candidate_id.candidate_id for list_candidate_id in list_candidate_id_all]
+        except Exception as error:
+            self.logger.warning(error)
+            return None
+
+
+
 
     def get_user_photos(self, candidate_id):
         """
@@ -175,11 +187,27 @@ class Saver:
         """
         try:
             photos = self.session.query(Photos).filter_by(candidate_id=candidate_id).all()
-            return [photo.photos_ids for photo in photos]
+            return [photo.attachment_photo for photo in photos]
         except Exception as error:
             self.logger.warning(error)
             return None
-
+          
+    def get_user_candidate(self, candidate_id):
+        """
+        Получает список фото для заданного пользователя.
+        :param candidate_id: ID пользователя ВКонтакте.
+        :return: Список Имя, Фамилия, Ссылка на профиль и список идентификаторов фото.
+        """
+        try:
+            candidates = self.session.query(Candidate).filter_by(candidate_id=candidate_id).all()
+            photos = self.session.query(Photos).filter_by(candidate_id=candidate_id).all()
+            photos_list = [photo.attachment_photo for photo in photos]
+            result = [[candidate.first_name, candidate.last_name, candidate.link, [photos_list][0]]
+                      for candidate in candidates]
+            return result[0]
+        except Exception as error:
+            self.logger.warning(error)
+            return None
 
 if __name__ == '__main__':
     Saver(CONNSTR)
