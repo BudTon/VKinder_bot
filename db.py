@@ -9,8 +9,10 @@ from config import CONNSTR
 
 Base = declarative_base()
 
+'''
+Определение моделей
+'''
 
-# Определение моделей
 class Candidate(Base):
     __tablename__ = 'candidates'
     candidate_id = Column(Integer, primary_key=True)
@@ -49,24 +51,24 @@ class Saver:
         self.database_check()
         self.table_check()
 
+
     def database_check(self):
         """
         Создает базу данных, если она не существует.
         """
-
-        # Создание базы данных, если она не существует
-
         if not database_exists(self.engine.url):
             self.logger.info(f"База данных не найдена. Создаем базу данных.")
             create_database(self.engine.url)
         else:
             self.logger.info(f"База данных уже существует.")
 
+
     def table_create(self):
         """
         Создание таблиц, если они не существуют.
         """
         Base.metadata.create_all(self.engine)
+
 
     def table_check(self):
         """
@@ -87,14 +89,8 @@ class Saver:
                     self.logger.info('Выход...')
                     sys.exit(0)
 
+
     def save_candidate(self, candidate_id, first_name, last_name, link):
-        """
-        Сохраняет кандидата.
-        :param candidate_id: ID пользователя ВКонтакте
-        :param first_name: Имя.
-        :param last_name: Фамилия.
-        :param link: URL.
-        """
         candidate = Candidate(
             candidate_id=candidate_id,
             first_name=first_name,
@@ -106,29 +102,18 @@ class Saver:
 
 
     def save_black_list(self, candidate_id):
-        """
-        Сохраняет в черный список.
-        :param candidate_id: ID пользователя ВКонтакте
-        """
         black_list = BlackList(candidate_id=candidate_id)
         self.session.add(black_list)
         self.session.commit()
 
+
     def save_favorite_list(self, candidate_id):
-        """
-        Сохраняет в список избранного.
-        :param candidate_id: ID пользователя ВКонтакте
-        """
         favorite_list = FavoriteList(candidate_id=candidate_id)
         self.session.add(favorite_list)
         self.session.commit()
 
+
     def save_photos(self, attachment_photo, candidate_id):
-        """
-        Сохраняет фото
-        :param attachment_photo: attachment_photo идентификатор для получения фото ВКонтакте
-        :param candidate_id: ID пользователя ВКонтакте
-        """
         attachment_photo = Photos(
             attachment_photo=attachment_photo,
             candidate_id=candidate_id
@@ -136,68 +121,44 @@ class Saver:
         self.session.add(attachment_photo)
         self.session.commit()
 
+
     def get_candidate_favorites(self):
-        """
-        Получает список избранных пользователей.
-        :return: Список избранных пользователей.
-        """
         try:
             favorites_list_all = self.session.query(FavoriteList).all()
             return [favorite.candidate_id for favorite in favorites_list_all]
-
         except Exception as error:
             self.logger.warning(error)
-            return None
+            return []
+
 
     def get_candidate_black_list(self):
-        """
-        Получает список пользователей в черном списке
-        :return: Список пользователей в черном списке.
-        """
         try:
             black_list_all = self.session.query(BlackList).all()
             return [black_list.black_list_id for black_list in black_list_all]
-
         except Exception as error:
             self.logger.warning(error)
-            return None
+            return []
 
-    
+
     def get_list_candidate_id(self):
-        """
-            Получает список ID пользователей в базе данных
-            :return: Список ID пользователей в базе данных.
-        """
-
         try:
             list_candidate_id_all = self.session.query(Candidate).all()
             return [list_candidate_id.candidate_id for list_candidate_id in list_candidate_id_all]
         except Exception as error:
             self.logger.warning(error)
-            return None
-
-
+            return []
 
 
     def get_user_photos(self, candidate_id):
-        """
-        Получает список фото для заданного пользователя.
-        :param candidate_id: ID пользователя ВКонтакте.
-        :return: Список идентификаторов фото.
-        """
         try:
             photos = self.session.query(Photos).filter_by(candidate_id=candidate_id).all()
             return [photo.attachment_photo for photo in photos]
         except Exception as error:
             self.logger.warning(error)
-            return None
-          
+            return []
+
+
     def get_user_candidate(self, candidate_id):
-        """
-        Получает список фото для заданного пользователя.
-        :param candidate_id: ID пользователя ВКонтакте.
-        :return: Список Имя, Фамилия, Ссылка на профиль и список идентификаторов фото.
-        """
         try:
             candidates = self.session.query(Candidate).filter_by(candidate_id=candidate_id).all()
             photos = self.session.query(Photos).filter_by(candidate_id=candidate_id).all()
@@ -207,7 +168,8 @@ class Saver:
             return result[0]
         except Exception as error:
             self.logger.warning(error)
-            return None
+            return []
+
 
 if __name__ == '__main__':
     Saver(CONNSTR)
