@@ -8,6 +8,15 @@ from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 from db import Saver
 from config import CONNSTR, USER_TOKEN, TOKEN_PHOTO
 
+
+class Profile:
+    def __init__(self, first_name='', last_name='', url='', user_id=None):
+        self.first_name = first_name
+        self.last_name = last_name
+        self.url = url
+        self.user_id = user_id
+
+
 def send_message(interlocutor_id, message, keyboard, attachments):
     session.method('messages.send', {
         'user_id': interlocutor_id,
@@ -142,13 +151,6 @@ def get_top_photos(session_photo, user_id):
     except vk_api.exceptions.ApiError as error:
         logging.error("Ошибка при получении фото пользователя: %s", error)
         return None
-
-class Profile:
-    def __init__(self, first_name='', last_name='', url='', user_id=None):
-        self.first_name = first_name
-        self.last_name = last_name
-        self.url = url
-        self.user_id = user_id
 
 
 def user_profile(city_id_find, age_find, sex_find, db, interlocutor_id, keyboard, attachments):
